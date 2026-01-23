@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import sql from '../src/db';
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:8000';
 
 // Helper function to make requests
 async function makeRequest(path: string, options: RequestInit = {}) {
@@ -39,7 +39,7 @@ afterAll(async () => {
   await sql`DELETE FROM storage_units`;
   await sql`DELETE FROM products`;
   await sql`DELETE FROM locations`;
-  await sql.end();
+  // Don't close connection - shared across test files
 });
 
 describe('POST /locations', () => {

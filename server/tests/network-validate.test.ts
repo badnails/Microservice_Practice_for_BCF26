@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import sql from '../src/db';
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:8000';
 
 // Helper function to make requests
 async function makeRequest(path: string, options: RequestInit = {}) {
@@ -48,6 +48,7 @@ afterAll(async () => {
   await sql`DELETE FROM storage_units`;
   await sql`DELETE FROM products`;
   await sql`DELETE FROM locations`;
+  // Don't close connection - shared across test files
 });
 
 describe('POST /network/validate', () => {
@@ -296,13 +297,11 @@ describe('POST /network/validate', () => {
       RETURNING id
     `;
 
-    // Create storage unit with LIMITED capacity
     await sql`
       INSERT INTO storage_units ("locationId", "minTemperature", "maxTemperature", capacity)
       VALUES (${warehouse.id}, 0, 10, 50)
     `;
 
-    // Create demand at warehouse with quantity EXCEEDING storage capacity
     await sql`
       INSERT INTO demands ("locationId", "productId", date, "minQuantity", "maxQuantity")
       VALUES (${warehouse.id}, ${product.id}, '2026-01-25', 50, 200)

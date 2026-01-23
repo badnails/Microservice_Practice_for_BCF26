@@ -6,7 +6,7 @@ import { createDemand, listDemands } from './src/handlers/demands';
 import { getNetworkSummary } from './src/handlers/network';
 import { validateTemperature, validateNetwork } from './src/handlers/validation';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 const server = Bun.serve({
   port: PORT,
