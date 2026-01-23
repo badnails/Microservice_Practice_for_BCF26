@@ -15,7 +15,7 @@ jobs:
       DB_NAME: logistics
       DB_USER: postgres
       DB_PASSWORD: postgres
-      PORT: 3000
+      PORT: 8000
 
     services:
       postgres:
