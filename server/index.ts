@@ -130,4 +130,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`🚀 Server running at http://localhost:${PORT}`);
+console.log(`Server running at http://localhost:${PORT}`);

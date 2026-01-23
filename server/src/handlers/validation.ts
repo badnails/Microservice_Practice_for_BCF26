@@ -54,6 +54,9 @@ export const validateTemperature = async (req: Request): Promise<Response> => {
 
     // For each demand, find the warehouse that supplies to this location
     for (const demand of demands) {
+      console.log(`\n=== Checking demand: ${demand.product_name} at ${demand.location_name} (${demand.location_type}) ===`);
+      console.log(`Product temp range: ${demand.product_min_temp}°C to ${demand.product_max_temp}°C`);
+      
       // Find routes that lead to this demand location
       // We need to trace back to find the warehouse
       let warehouseIds: string[] = [];
@@ -61,6 +64,7 @@ export const validateTemperature = async (req: Request): Promise<Response> => {
       if (demand.location_type === 'WAREHOUSE') {
         // Demand is at a warehouse
         warehouseIds = [demand.location_id];
+        console.log(`Demand is at warehouse itself`);
       } else {
         // Find warehouses that have routes to this location (RETAILER or HOSPITAL)
         const routes = await sql`
@@ -71,6 +75,7 @@ export const validateTemperature = async (req: Request): Promise<Response> => {
             AND l.type = 'WAREHOUSE'
         `;
         warehouseIds = routes.map((r: any) => r.fromLocationId);
+        console.log(`Found ${warehouseIds.length} warehouses with routes to this location:`, warehouseIds);
       }
 
       // Check if product temperature is compatible with at least one storage unit in any warehouse
@@ -82,13 +87,21 @@ export const validateTemperature = async (req: Request): Promise<Response> => {
           FROM storage_units
           WHERE "locationId" = ${warehouseId}
         `;
+        
+        console.log(`  Checking warehouse ${warehouseId} - has ${storageUnits.length} storage units`);
 
         // Check if product temperature range is fully within at least one storage unit
         for (const unit of storageUnits) {
-          if (
-            demand.product_min_temp >= unit.minTemperature &&
-            demand.product_max_temp <= unit.maxTemperature
-          ) {
+          const minCheck = demand.product_min_temp >= Number(unit.minTemperature);
+          const maxCheck = demand.product_max_temp <= Number(unit.maxTemperature);
+          const compatible = minCheck && maxCheck;
+          
+          console.log(`    Storage unit: [${unit.minTemperature}°C to ${unit.maxTemperature}°C]`);
+          console.log(`      Min check: ${demand.product_min_temp} >= ${Number(unit.minTemperature)} = ${minCheck}`);
+          console.log(`      Max check: ${demand.product_max_temp} <= ${Number(unit.maxTemperature)} = ${maxCheck}`);
+          console.log(`      Compatible: ${compatible}`);
+          
+          if (compatible) {
             isCompatible = true;
             break;
           }
@@ -96,6 +109,8 @@ export const validateTemperature = async (req: Request): Promise<Response> => {
 
         if (isCompatible) break;
       }
+
+      console.log(`Final result for ${demand.product_name} at ${demand.location_name}: ${isCompatible ? 'COMPATIBLE' : 'INCOMPATIBLE'}`);
 
       if (!isCompatible && warehouseIds.length > 0) {
         issues.push(
