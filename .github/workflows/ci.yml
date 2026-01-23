@@ -42,6 +42,19 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d logistics -f init.sql
 
+      - name: Start server
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: logistics
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          PORT: 3000
+        run: |
+          bun run index.ts &
+          sleep 5
+          curl --retry 10 --retry-delay 1 --retry-connrefused http://localhost:3000/locations || echo "Server starting..."
+
       - name: Run tests
         env:
           DB_HOST: localhost
