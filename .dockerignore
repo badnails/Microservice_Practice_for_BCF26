@@ -1,0 +1,10 @@
+node_modules
+.env
+.git
+.gitignore
+README.md
+API_DOCUMENTATION.md
+apidoc.md
+preliminary_round_questions.pdf
+*.log
+.DS_Store
