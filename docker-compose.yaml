@@ -22,14 +22,25 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=bwfc_microservices-network"
-      - "--entrypoints.web.address=:3000"
+      # Define Entrypoints for HTTP and HTTPS
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Global HTTP -> HTTPS Redirection
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      # Let's Encrypt SSL Configuration
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=arunavanirban@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--log.level=DEBUG"
       - "--accesslog=true"
     ports:
-      - "3000:3000"      # Main entry point
+      - "80:80"          # HTTP
+      - "443:443"        # HTTPS
       - "8080:8080"      # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
     networks:
       - microservices-network
     restart: unless-stopped
@@ -161,8 +172,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.locations.rule=PathPrefix(`/locations`)"
-      - "traefik.http.routers.locations.entrypoints=web"
+      - "traefik.http.routers.locations.rule=Host(`hunt.sage.surf`) && PathPrefix(`/locations`)"
+      - "traefik.http.routers.locations.entrypoints=websecure"
+      - "traefik.http.routers.locations.tls=true"
+      - "traefik.http.routers.locations.tls.certresolver=myresolver"
       - "traefik.http.services.locations.loadbalancer.server.port=3001"
 
   product-service:
@@ -183,8 +196,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.products.rule=PathPrefix(`/products`)"
-      - "traefik.http.routers.products.entrypoints=web"
+      - "traefik.http.routers.products.rule=Host(`hunt.sage.surf`) && PathPrefix(`/products`)"
+      - "traefik.http.routers.products.entrypoints=websecure"
+      - "traefik.http.routers.products.tls=true"
+      - "traefik.http.routers.products.tls.certresolver=myresolver"
       - "traefik.http.services.products.loadbalancer.server.port=3002"
 
   warehouse-service:
@@ -208,8 +223,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.warehouse.rule=PathPrefix(`/storage-units`)"
-      - "traefik.http.routers.warehouse.entrypoints=web"
+      - "traefik.http.routers.warehouse.rule=Host(`hunt.sage.surf`) && PathPrefix(`/storage-units`)"
+      - "traefik.http.routers.warehouse.entrypoints=websecure"
+      - "traefik.http.routers.warehouse.tls=true"
+      - "traefik.http.routers.warehouse.tls.certresolver=myresolver"
       - "traefik.http.services.warehouse.loadbalancer.server.port=3003"
 
   routing-service:
@@ -233,8 +250,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.routing.rule=PathPrefix(`/routes`)"
-      - "traefik.http.routers.routing.entrypoints=web"
+      - "traefik.http.routers.routing.rule=Host(`hunt.sage.surf`) && PathPrefix(`/routes`)"
+      - "traefik.http.routers.routing.entrypoints=websecure"
+      - "traefik.http.routers.routing.tls=true"
+      - "traefik.http.routers.routing.tls.certresolver=myresolver"
       - "traefik.http.services.routing.loadbalancer.server.port=3004"
 
   demand-service:
@@ -264,8 +283,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.demands.rule=PathPrefix(`/demands`)"
-      - "traefik.http.routers.demands.entrypoints=web"
+      - "traefik.http.routers.demands.rule=Host(`hunt.sage.surf`) && PathPrefix(`/demands`)"
+      - "traefik.http.routers.demands.entrypoints=websecure"
+      - "traefik.http.routers.demands.tls=true"
+      - "traefik.http.routers.demands.tls.certresolver=myresolver"
       - "traefik.http.services.demands.loadbalancer.server.port=3005"
 
   validation-service:
@@ -297,8 +318,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.validation.rule=PathPrefix(`/temps`) || PathPrefix(`/network/validate`)"
-      - "traefik.http.routers.validation.entrypoints=web"
+      - "traefik.http.routers.validation.rule=Host(`hunt.sage.surf`) && (PathPrefix(`/temps`) || PathPrefix(`/network/validate`))"
+      - "traefik.http.routers.validation.entrypoints=websecure"
+      - "traefik.http.routers.validation.tls=true"
+      - "traefik.http.routers.validation.tls.certresolver=myresolver"
       - "traefik.http.services.validation.loadbalancer.server.port=3006"
 
   network-service:
@@ -330,6 +353,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.network.rule=PathPrefix(`/network/summary`)"
-      - "traefik.http.routers.network.entrypoints=web"
+      - "traefik.http.routers.network.rule=Host(`hunt.sage.surf`) && PathPrefix(`/network/summary`)"
+      - "traefik.http.routers.network.entrypoints=websecure"
+      - "traefik.http.routers.network.tls=true"
+      - "traefik.http.routers.network.tls.certresolver=myresolver"
       - "traefik.http.services.network.loadbalancer.server.port=3007"
