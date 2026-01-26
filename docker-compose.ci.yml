@@ -161,6 +161,8 @@ services:
       DB_HOST: products-db
       DB_PORT: 5432
       DB_NAME: products_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
     depends_on:
       products-db:
         condition: service_healthy
@@ -181,6 +183,7 @@ services:
       DB_PORT: 5432
       DB_NAME: warehouse_db
       DB_USER: postgres
+      DB_PASSWORD: postgres
     depends_on:
       warehouse-db:
         condition: service_healthy
@@ -203,6 +206,7 @@ services:
       DB_PORT: 5432
       DB_NAME: routing_db
       DB_USER: postgres
+      DB_PASSWORD: postgres
     depends_on:
       routing-db:
         condition: service_healthy
@@ -301,6 +305,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.network.rule=PathPrefix(`/network/summary`)"
+      - "traefik.http.routers.network.entrypoints=web"
+      - "traefik.http.services.network.loadbalancer.server.port=3007"
       - "traefik.http.routers.network.rule=PathPrefix(`/network/summary`)"
       - "traefik.http.routers.network.entrypoints=web"
       - "traefik.http.services.network.loadbalancer.server.port=3007"
