@@ -1,0 +1,16 @@
+{
+  "name": "network-service",
+  "version": "1.0.0",
+  "description": "Network Service - Aggregates network summary from all services",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun run --watch index.ts",
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

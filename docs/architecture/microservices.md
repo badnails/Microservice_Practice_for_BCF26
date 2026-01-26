@@ -28,20 +28,20 @@ This document outlines the microservices architecture for the Logistics Network 
     │     DB      │ │     DB      │ │  units DB │ │     DB      │ │     DB      │        │
     └─────────────┘ └─────────────┘ └───────────┘ └─────────────┘ └─────────────┘        │
                                                                                          │
-                          ◄──────────────── Queries via Service APIs ───────────────────┘
-```
+                           ◄──────────────── Queries via Service APIs ───────────────────┘
+
 
 ---
 
 ## Microservices List
 
-| # | Service Name | Port | Database |
-|---|--------------|------|----------|
-| 1 | Location Service | 3001 | locations_db |
-| 2 | Product Service | 3002 | products_db |
-| 3 | Warehouse Service | 3003 | warehouse_db |
-| 4 | Routing Service | 3004 | routing_db |
-| 5 | Demand Service | 3005 | demands_db |
+| # | Service Name       | Port | Database         |
+|---|--------------------|------|------------------|
+| 1 | Location Service   | 3001 | locations_db     |
+| 2 | Product Service    | 3002 | products_db      |
+| 3 | Warehouse Service. | 3003 | warehouse_db     |
+| 4 | Routing Service    | 3004 | routing_db       |
+| 5 | Demand Service     | 3005 | demands_db       |
 | 6 | Validation Service | 3006 | None (stateless) |
 | 7 | API Gateway | 3000 | None |
 
@@ -376,13 +376,13 @@ CREATE INDEX idx_demands_product ON demands("productId");
 
 ## Database Schema to Microservice Mapping
 
-| Database Table | Microservice | Ownership |
-|----------------|--------------|-----------|
-| `locations` | Location Service | Full ownership |
-| `products` | Product Service | Full ownership |
+| Database Table  | Microservice      | Ownership      |
+|-----------------|-------------------|----------------|
+| `locations`     | Location Service  | Full ownership |
+| `products`      | Product Service   | Full ownership |
 | `storage_units` | Warehouse Service | Full ownership |
-| `routes` | Routing Service | Full ownership |
-| `demands` | Demand Service | Full ownership |
+| `routes`        | Routing Service   | Full ownership |
+| `demands`       | Demand Service    | Full ownership |
 
 ### Data Ownership Principles
 

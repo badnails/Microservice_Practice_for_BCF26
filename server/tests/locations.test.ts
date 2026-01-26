@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import sql from '../src/db';
+import { cleanupAllDatabases, closeAllConnections } from './db-cleanup';
 
-const BASE_URL = 'http://localhost:8000';
+// Updated for microservices architecture - requests go through Traefik
+const BASE_URL = 'http://localhost:3000';
 
 // Helper function to make requests
 async function makeRequest(path: string, options: RequestInit = {}) {
@@ -24,22 +25,14 @@ async function makeRequest(path: string, options: RequestInit = {}) {
   return { response, json };
 }
 
-// Clean up database before and after tests
+// Clean all microservice databases before and after tests
 beforeAll(async () => {
-  await sql`DELETE FROM demands`;
-  await sql`DELETE FROM routes`;
-  await sql`DELETE FROM storage_units`;
-  await sql`DELETE FROM products`;
-  await sql`DELETE FROM locations`;
+  await cleanupAllDatabases();
 });
 
 afterAll(async () => {
-  await sql`DELETE FROM demands`;
-  await sql`DELETE FROM routes`;
-  await sql`DELETE FROM storage_units`;
-  await sql`DELETE FROM products`;
-  await sql`DELETE FROM locations`;
-  // Don't close connection - shared across test files
+  await cleanupAllDatabases();
+  //await closeAllConnections();
 });
 
 describe('POST /locations', () => {
