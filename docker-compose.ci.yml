@@ -38,6 +38,8 @@ services:
       POSTGRES_DB: locations_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
     volumes:
       - locations-db-data:/var/lib/postgresql/data
       - ./database/location-service/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -56,6 +58,8 @@ services:
       POSTGRES_DB: products_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
     volumes:
       - products-db-data:/var/lib/postgresql/data
       - ./database/product-service/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -74,6 +78,8 @@ services:
       POSTGRES_DB: warehouse_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
     volumes:
       - warehouse-db-data:/var/lib/postgresql/data
       - ./database/warehouse-service/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -92,6 +98,8 @@ services:
       POSTGRES_DB: routing_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
     volumes:
       - routing-db-data:/var/lib/postgresql/data
       - ./database/routing-service/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -110,6 +118,8 @@ services:
       POSTGRES_DB: demands_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    ports:
+      - "5437:5432"
     volumes:
       - demands-db-data:/var/lib/postgresql/data
       - ./database/demand-service/init.sql:/docker-entrypoint-initdb.d/init.sql
