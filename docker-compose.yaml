@@ -31,15 +31,15 @@ services:
     container_name: locations-db
     environment:
       POSTGRES_DB: locations_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     volumes:
       - locations-db-data:/var/lib/postgresql/data
       - ./database/location-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,15 +49,15 @@ services:
     container_name: products-db
     environment:
       POSTGRES_DB: products_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     volumes:
       - products-db-data:/var/lib/postgresql/data
       - ./database/product-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,15 +67,15 @@ services:
     container_name: warehouse-db
     environment:
       POSTGRES_DB: warehouse_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     volumes:
       - warehouse-db-data:/var/lib/postgresql/data
       - ./database/warehouse-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -85,15 +85,15 @@ services:
     container_name: routing-db
     environment:
       POSTGRES_DB: routing_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     volumes:
       - routing-db-data:/var/lib/postgresql/data
       - ./database/routing-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -103,15 +103,15 @@ services:
     container_name: demands-db
     environment:
       POSTGRES_DB: demands_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     volumes:
       - demands-db-data:/var/lib/postgresql/data
       - ./database/demand-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -126,8 +126,8 @@ services:
       DB_HOST: locations-db
       DB_PORT: 5432
       DB_NAME: locations_db
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
       PORT: 3001
     expose:
       - "3001"
@@ -145,8 +145,8 @@ services:
       DB_HOST: products-db
       DB_PORT: 5432
       DB_NAME: products_db
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     expose:
       - "3002"
     depends_on:
@@ -163,8 +163,8 @@ services:
       DB_HOST: warehouse-db
       DB_PORT: 5432
       DB_NAME: warehouse_db
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     expose:
       - "3003"
     depends_on:
@@ -183,8 +183,8 @@ services:
       DB_HOST: routing-db
       DB_PORT: 5432
       DB_NAME: routing_db
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     expose:
       - "3004"
     depends_on:
@@ -203,8 +203,8 @@ services:
       DB_HOST: demands-db
       DB_PORT: 5432
       DB_NAME: demands_db
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
       PORT: 3005
       LOCATION_SERVICE_URL: http://location-service:3001
       PRODUCT_SERVICE_URL: http://product-service:3002

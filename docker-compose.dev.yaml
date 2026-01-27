@@ -13,7 +13,7 @@ services:
       - "--accesslog=true"
     ports:
       - "${TRAEFIK_HTTP_PORT:-3000}:${TRAEFIK_HTTP_PORT:-3000}"      # HTTP Development
-      - "8080:8080"      # Traefik dashboard
+      - "8080:8080"
 
   location-service:
     labels:
