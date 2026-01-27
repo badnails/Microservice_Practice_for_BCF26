@@ -95,14 +95,14 @@ jobs:
 
       - name: Start Docker Compose services
         run: |
-          docker compose -f docker-compose.ci.yml up -d
+          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
           echo "Waiting for services to be healthy..."
           sleep 30
 
       - name: Check service health
         run: |
-          docker compose -f docker-compose.ci.yml ps
-          curl -f http://localhost:80/locations || (docker compose -f docker-compose.ci.yml logs && exit 1)
+          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml ps
+          curl -f http://localhost:3000/locations || (docker compose -f docker-compose.yaml -f docker-compose.dev.yaml logs && exit 1)
 
       - name: Run integration tests
         working-directory: server
@@ -112,7 +112,7 @@ jobs:
 
       - name: Stop Docker Compose
         if: always()
-        run: docker compose -f docker-compose.ci.yml down -v
+        run: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
 
       - name: Report test results
         if: always()
@@ -221,29 +221,38 @@ jobs:
             # Pull latest changes
             git pull origin main
             
+            # Create .env.prod from GitHub Secrets
+            cat > .env.prod << EOF
+            ENVIRONMENT=production
+            DOMAIN=${{ secrets.DOMAIN }}
+            ACME_EMAIL=${{ secrets.ACME_EMAIL }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            EOF
+            
             # Stop and remove old containers (preserve volumes)
-            docker compose down
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod down
             
             # Rebuild and start services with parallel build
-            docker compose build --parallel
-            docker compose up -d
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod build --parallel
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up -d
             
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."
-            sleep 20
+            sleep 10
             
-            # Check database health
-            docker compose exec -T locations-db pg_isready -U postgres || echo "locations-db not ready"
-            docker compose exec -T products-db pg_isready -U postgres || echo "products-db not ready"
-            docker compose exec -T warehouse-db pg_isready -U postgres || echo "warehouse-db not ready"
-            docker compose exec -T routing-db pg_isready -U postgres || echo "routing-db not ready"
-            docker compose exec -T demands-db pg_isready -U postgres || echo "demands-db not ready"
+            # Check database health (using env variable user)
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T locations-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "locations-db not ready"
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T products-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "products-db not ready"
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T warehouse-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "warehouse-db not ready"
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T routing-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "routing-db not ready"
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T demands-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "demands-db not ready"
             
             # Verify Traefik is running (with HTTPS)
             curl -f -k https://localhost:443/locations || curl -f http://localhost:80/locations || echo "Traefik gateway not responding"
             
             # Show running services
-            docker compose ps
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod ps
             
             # Clean up unused images
             docker image prune -f

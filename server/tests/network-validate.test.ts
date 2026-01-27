@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:tes
 import { cleanupAllDatabases, closeAllConnections } from './db-cleanup';
 
 // Updated for microservices architecture - requests go through Traefik
-const BASE_URL = 'http://localhost:80';
+const BASE_URL = 'http://localhost:3000';
 
 // Helper function to make requests
 async function makeRequest(path: string, options: RequestInit = {}) {

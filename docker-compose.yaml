@@ -17,30 +17,8 @@ services:
   traefik:
     image: traefik:v2.11
     container_name: traefik
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=bwfc_microservices-network"
-      # Define Entrypoints for HTTP and HTTPS
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      # Global HTTP -> HTTPS Redirection
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      # Let's Encrypt SSL Configuration
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=arunavanirban@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--log.level=DEBUG"
-      - "--accesslog=true"
-    ports:
-      - "80:80"          # HTTP
-      - "443:443"        # HTTPS
-      - "8080:8080"      # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./letsencrypt:/letsencrypt
     networks:
       - microservices-network
     restart: unless-stopped
@@ -53,17 +31,15 @@ services:
     container_name: locations-db
     environment:
       POSTGRES_DB: locations_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5433:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - locations-db-data:/var/lib/postgresql/data
       - ./database/location-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -73,17 +49,15 @@ services:
     container_name: products-db
     environment:
       POSTGRES_DB: products_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5434:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - products-db-data:/var/lib/postgresql/data
       - ./database/product-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -93,17 +67,15 @@ services:
     container_name: warehouse-db
     environment:
       POSTGRES_DB: warehouse_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5435:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - warehouse-db-data:/var/lib/postgresql/data
       - ./database/warehouse-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -113,17 +85,15 @@ services:
     container_name: routing-db
     environment:
       POSTGRES_DB: routing_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5436:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - routing-db-data:/var/lib/postgresql/data
       - ./database/routing-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -133,17 +103,15 @@ services:
     container_name: demands-db
     environment:
       POSTGRES_DB: demands_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5437:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - demands-db-data:/var/lib/postgresql/data
       - ./database/demand-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservices-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -158,8 +126,8 @@ services:
       DB_HOST: locations-db
       DB_PORT: 5432
       DB_NAME: locations_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       PORT: 3001
     expose:
       - "3001"
@@ -169,14 +137,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.locations.rule=Host(`hunt.sage.surf`) && PathPrefix(`/locations`)"
-      - "traefik.http.routers.locations.entrypoints=websecure"
-      - "traefik.http.routers.locations.tls=true"
-      - "traefik.http.routers.locations.tls.certresolver=myresolver"
-      - "traefik.http.services.locations.loadbalancer.server.port=3001"
 
   product-service:
     build: ./services/product-service
@@ -185,8 +145,8 @@ services:
       DB_HOST: products-db
       DB_PORT: 5432
       DB_NAME: products_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     expose:
       - "3002"
     depends_on:
@@ -195,14 +155,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.products.rule=Host(`hunt.sage.surf`) && PathPrefix(`/products`)"
-      - "traefik.http.routers.products.entrypoints=websecure"
-      - "traefik.http.routers.products.tls=true"
-      - "traefik.http.routers.products.tls.certresolver=myresolver"
-      - "traefik.http.services.products.loadbalancer.server.port=3002"
 
   warehouse-service:
     build: ./services/warehouse-service
@@ -211,8 +163,8 @@ services:
       DB_HOST: warehouse-db
       DB_PORT: 5432
       DB_NAME: warehouse_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     expose:
       - "3003"
     depends_on:
@@ -223,14 +175,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.warehouse.rule=Host(`hunt.sage.surf`) && PathPrefix(`/storage-units`)"
-      - "traefik.http.routers.warehouse.entrypoints=websecure"
-      - "traefik.http.routers.warehouse.tls=true"
-      - "traefik.http.routers.warehouse.tls.certresolver=myresolver"
-      - "traefik.http.services.warehouse.loadbalancer.server.port=3003"
 
   routing-service:
     build: ./services/routing-service
@@ -239,8 +183,8 @@ services:
       DB_HOST: routing-db
       DB_PORT: 5432
       DB_NAME: routing_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     expose:
       - "3004"
     depends_on:
@@ -251,14 +195,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.routing.rule=Host(`hunt.sage.surf`) && PathPrefix(`/routes`)"
-      - "traefik.http.routers.routing.entrypoints=websecure"
-      - "traefik.http.routers.routing.tls=true"
-      - "traefik.http.routers.routing.tls.certresolver=myresolver"
-      - "traefik.http.services.routing.loadbalancer.server.port=3004"
 
   demand-service:
     build: ./services/demand-service
@@ -267,8 +203,8 @@ services:
       DB_HOST: demands-db
       DB_PORT: 5432
       DB_NAME: demands_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       PORT: 3005
       LOCATION_SERVICE_URL: http://location-service:3001
       PRODUCT_SERVICE_URL: http://product-service:3002
@@ -284,14 +220,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.demands.rule=Host(`hunt.sage.surf`) && PathPrefix(`/demands`)"
-      - "traefik.http.routers.demands.entrypoints=websecure"
-      - "traefik.http.routers.demands.tls=true"
-      - "traefik.http.routers.demands.tls.certresolver=myresolver"
-      - "traefik.http.services.demands.loadbalancer.server.port=3005"
 
   validation-service:
     build: ./services/validation-service
@@ -319,14 +247,6 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.validation.rule=Host(`hunt.sage.surf`) && (PathPrefix(`/temps`) || PathPrefix(`/network/validate`))"
-      - "traefik.http.routers.validation.entrypoints=websecure"
-      - "traefik.http.routers.validation.tls=true"
-      - "traefik.http.routers.validation.tls.certresolver=myresolver"
-      - "traefik.http.services.validation.loadbalancer.server.port=3006"
 
   network-service:
     build: ./services/network-service
@@ -354,11 +274,3 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=bwfc_microservices-network"
-      - "traefik.http.routers.network.rule=Host(`hunt.sage.surf`) && PathPrefix(`/network/summary`)"
-      - "traefik.http.routers.network.entrypoints=websecure"
-      - "traefik.http.routers.network.tls=true"
-      - "traefik.http.routers.network.tls.certresolver=myresolver"
-      - "traefik.http.services.network.loadbalancer.server.port=3007"

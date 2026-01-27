@@ -1,0 +1,100 @@
+# Production Environment Override
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up
+
+services:
+  traefik:
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=bwfc_microservices-network"
+      # Define Entrypoints for HTTP and HTTPS
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Global HTTP -> HTTPS Redirection
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      # Let's Encrypt SSL Configuration
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+    ports:
+      - "80:80"          # HTTP
+      - "443:443"        # HTTPS
+    volumes:
+      - ./letsencrypt:/letsencrypt
+
+  location-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.locations.rule=Host(`${DOMAIN}`) && PathPrefix(`/locations`)"
+      - "traefik.http.routers.locations.entrypoints=websecure"
+      - "traefik.http.routers.locations.tls=true"
+      - "traefik.http.routers.locations.tls.certresolver=myresolver"
+      - "traefik.http.services.locations.loadbalancer.server.port=3001"
+
+  product-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.products.rule=Host(`${DOMAIN}`) && PathPrefix(`/products`)"
+      - "traefik.http.routers.products.entrypoints=websecure"
+      - "traefik.http.routers.products.tls=true"
+      - "traefik.http.routers.products.tls.certresolver=myresolver"
+      - "traefik.http.services.products.loadbalancer.server.port=3002"
+
+  warehouse-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.warehouse.rule=Host(`${DOMAIN}`) && PathPrefix(`/storage-units`)"
+      - "traefik.http.routers.warehouse.entrypoints=websecure"
+      - "traefik.http.routers.warehouse.tls=true"
+      - "traefik.http.routers.warehouse.tls.certresolver=myresolver"
+      - "traefik.http.services.warehouse.loadbalancer.server.port=3003"
+
+  routing-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.routing.rule=Host(`${DOMAIN}`) && PathPrefix(`/routes`)"
+      - "traefik.http.routers.routing.entrypoints=websecure"
+      - "traefik.http.routers.routing.tls=true"
+      - "traefik.http.routers.routing.tls.certresolver=myresolver"
+      - "traefik.http.services.routing.loadbalancer.server.port=3004"
+
+  demand-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.demands.rule=Host(`${DOMAIN}`) && PathPrefix(`/demands`)"
+      - "traefik.http.routers.demands.entrypoints=websecure"
+      - "traefik.http.routers.demands.tls=true"
+      - "traefik.http.routers.demands.tls.certresolver=myresolver"
+      - "traefik.http.services.demands.loadbalancer.server.port=3005"
+
+  validation-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.validation.rule=Host(`${DOMAIN}`) && (PathPrefix(`/temps`) || PathPrefix(`/network/validate`))"
+      - "traefik.http.routers.validation.entrypoints=websecure"
+      - "traefik.http.routers.validation.tls=true"
+      - "traefik.http.routers.validation.tls.certresolver=myresolver"
+      - "traefik.http.services.validation.loadbalancer.server.port=3006"
+
+  network-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.network.rule=Host(`${DOMAIN}`) && PathPrefix(`/network/summary`)"
+      - "traefik.http.routers.network.entrypoints=websecure"
+      - "traefik.http.routers.network.tls=true"
+      - "traefik.http.routers.network.tls.certresolver=myresolver"
+      - "traefik.http.services.network.loadbalancer.server.port=3007"
+
+  # Security: No database ports exposed in production (internal network only)
+  # Databases are only accessible to services within the Docker network

@@ -1,0 +1,93 @@
+# Development Environment Override
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml --env-file .env.dev up
+
+services:
+  traefik:
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=bwfc_microservices-network"
+      - "--entrypoints.web.address=:${TRAEFIK_HTTP_PORT:-3000}"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-3000}:${TRAEFIK_HTTP_PORT:-3000}"      # HTTP Development
+      - "8080:8080"      # Traefik dashboard
+
+  location-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.locations.rule=PathPrefix(`/locations`)"
+      - "traefik.http.routers.locations.entrypoints=web"
+      - "traefik.http.services.locations.loadbalancer.server.port=3001"
+
+  product-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.products.rule=PathPrefix(`/products`)"
+      - "traefik.http.routers.products.entrypoints=web"
+      - "traefik.http.services.products.loadbalancer.server.port=3002"
+
+  warehouse-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.warehouse.rule=PathPrefix(`/storage-units`)"
+      - "traefik.http.routers.warehouse.entrypoints=web"
+      - "traefik.http.services.warehouse.loadbalancer.server.port=3003"
+
+  routing-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.routing.rule=PathPrefix(`/routes`)"
+      - "traefik.http.routers.routing.entrypoints=web"
+      - "traefik.http.services.routing.loadbalancer.server.port=3004"
+
+  demand-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.demands.rule=PathPrefix(`/demands`)"
+      - "traefik.http.routers.demands.entrypoints=web"
+      - "traefik.http.services.demands.loadbalancer.server.port=3005"
+
+  validation-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.validation.rule=PathPrefix(`/temps`) || PathPrefix(`/network/validate`)"
+      - "traefik.http.routers.validation.entrypoints=web"
+      - "traefik.http.services.validation.loadbalancer.server.port=3006"
+
+  network-service:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=bwfc_microservices-network"
+      - "traefik.http.routers.network.rule=PathPrefix(`/network/summary`)"
+      - "traefik.http.routers.network.entrypoints=web"
+      - "traefik.http.services.network.loadbalancer.server.port=3007"
+
+  # Expose database ports for local development and testing
+  locations-db:
+    ports:
+      - "5433:5432"
+
+  products-db:
+    ports:
+      - "5434:5432"
+
+  warehouse-db:
+    ports:
+      - "5435:5432"
+
+  routing-db:
+    ports:
+      - "5436:5432"
+
+  demands-db:
+    ports:
+      - "5437:5432"
