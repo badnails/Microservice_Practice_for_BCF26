@@ -1,4 +1,4 @@
-name: CI/CD
+name: BWFC Preli CI/CD
 
 on:
   push:
@@ -11,8 +11,8 @@ permissions:
   security-events: write
 
 jobs:
-  setup:
-    name: Setup Dependencies
+  lint:
+    name: Lint Services
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -38,28 +38,6 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: bun install --frozen-lockfile
 
-  lint:
-    name: Lint Services
-    runs-on: ubuntu-24.04
-    needs: setup
-    strategy:
-      matrix:
-        service: [location-service, product-service, warehouse-service, routing-service, demand-service, validation-service, network-service]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Restore dependencies
-        uses: actions/cache@v4
-        with:
-          path: services/${{ matrix.service }}/node_modules
-          key: bun-modules-${{ matrix.service }}-${{ runner.os }}-${{ hashFiles('services/${{ matrix.service }}/bun.lockb') }}
-
       - name: Run linter for ${{ matrix.service }}
         working-directory: services/${{ matrix.service }}
         run: |
@@ -73,7 +51,6 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-24.04
-    needs: setup
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,9 +72,8 @@ jobs:
 
       - name: Start Docker Compose services
         run: |
-          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-          echo "Waiting for services to be healthy..."
-          sleep 30
+          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait
+          echo "All services are healthy!"
 
       - name: Check service health
         run: |
@@ -127,6 +103,9 @@ jobs:
   build:
     name: Build Docker Images
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write  # Required to push to GHCR
     needs: [test]
     strategy:
       matrix:
@@ -145,25 +124,47 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build ${{ matrix.service }} image
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=sha
+            type=ref,event=branch
+            type=ref,event=pr
+
+      - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v6
         with:
           context: ./services/${{ matrix.service }}
           file: ./services/${{ matrix.service }}/Dockerfile
-          push: false
-          tags: ${{ matrix.service }}:${{ github.sha }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-          load: true
+          load: false
 
       - name: Run Trivy security scan on ${{ matrix.service }}
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ matrix.service }}:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-${{ matrix.service }}.sarif'
           severity: 'CRITICAL,HIGH'
         continue-on-error: true
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
@@ -218,8 +219,12 @@ jobs:
             # Navigate to project directory
             cd ${{ secrets.VPS_PROJECT_PATH }}
             
-            # Pull latest changes
+            # Pull latest changes (for compose files and configs)
             git pull origin main
+            
+            # Lowercase owner for Docker registry compatibility
+            OWNER="${{ github.repository_owner }}"
+            OWNER_LC="${OWNER,,}"
             
             # Create .env.prod from GitHub Secrets
             cat > .env.prod << EOF
@@ -228,25 +233,18 @@ jobs:
             ACME_EMAIL=${{ secrets.ACME_EMAIL }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            IMAGE_TAG=${{ github.sha }}
+            GHCR_REGISTRY=ghcr.io/$OWNER_LC
             EOF
             
-            # Stop and remove old containers (preserve volumes)
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod down
+            # Login to GitHub Container Registry (requires GHCR_PAT secret)
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Rebuild and start services with parallel build
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod build --parallel
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up -d
+            # Pull pre-built images from GHCR
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod pull
             
-            # Wait for services to be healthy
-            echo "Waiting for services to be healthy..."
-            sleep 10
-            
-            # Check database health (using env variable user)
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T locations-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "locations-db not ready"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T products-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "products-db not ready"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T warehouse-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "warehouse-db not ready"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T routing-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "routing-db not ready"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod exec -T demands-db pg_isready -U ${{ secrets.POSTGRES_USER }} || echo "demands-db not ready"
+            # Zero-downtime deployment: up -d with --wait (Docker swaps containers when ready)
+            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up -d --wait
             
             # Verify Traefik is running (with HTTPS)
             curl -f -k https://localhost:443/locations || curl -f http://localhost:80/locations || echo "Traefik gateway not responding"
