@@ -279,7 +279,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to VPS via SSH
+      - name: Deploy to VPS via SSH (Docker Swarm)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -290,40 +290,43 @@ jobs:
             # Navigate to project directory
             cd ${{ secrets.VPS_PROJECT_PATH }}
             
-            # Pull latest changes (for compose files and configs)
+            # Pull latest changes (for compose files, scripts, and configs)
             git pull origin main
+            
+            # Make scripts executable
+            chmod +x scripts/swarm-*.sh
             
             # Login to GitHub Container Registry (requires GHCR_PAT secret)
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull pre-built images from GHCR (same images that passed tests)
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod pull
+            # Initialize swarm if not already initialized
+            if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
+              echo "🚀 Initializing Docker Swarm..."
+              ./scripts/swarm-init.sh
+            else
+              echo "✅ Swarm already initialized"
+            fi
             
-            # Deploy updated services
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up -d --wait
+            # Deploy stack using deployment script
+            echo "🚀 Deploying stack..."
+            ./scripts/swarm-deploy.sh prod
             
             # Wait for services to stabilize
-            echo "Waiting for services to stabilize..."
-            sleep 10
+            echo "⏳ Waiting for services to stabilize..."
+            sleep 15
             
-            # # Verify services are healthy
-            # echo "Verifying deployment health..."
-            # max_retries=15
-            # for i in $(seq 1 $max_retries); do
-            #   if curl -f -k --max-time 5 https://localhost:443/locations > /dev/null 2>&1 || \
-            #      curl -f --max-time 5 http://localhost:80/locations > /dev/null 2>&1; then
-            #     echo "✅ Deployment verified - services responding"
-            #     break
-            #   fi
-            #   if [ $i -eq $max_retries ]; then
-            #     echo "⚠️ Warning: Deployment completed but services not responding"
-            #     docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod logs --tail=50
-            #   fi
-            #   sleep 2
-            # done
+            # Verify deployment
+            echo "📋 Checking service health..."
+            docker stack services bwfc
             
-            # Show running services
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod ps
+            # Show any failed tasks
+            FAILED=$(docker stack ps bwfc --filter "desired-state=running" --format "{{.CurrentState}}" | grep -c "Failed" || true)
+            if [ "$FAILED" -gt 0 ]; then
+              echo "⚠️ Warning: $FAILED task(s) failed"
+              docker stack ps bwfc --filter "desired-state=running"
+            else
+              echo "✅ All services healthy"
+            fi
             
             # Clean up unused images
             docker image prune -f
@@ -332,6 +335,7 @@ jobs:
         run: |
           echo "### 🚀 Deployment Completed!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Orchestration:** Docker Swarm" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed to:** \`${{ secrets.VPS_HOST }}\`" >> $GITHUB_STEP_SUMMARY
@@ -345,3 +349,9 @@ jobs:
           echo "- ✅ Validation Service" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Network Service" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Traefik Gateway" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Swarm Features:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 Rolling updates with automatic rollback" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚀 Zero-downtime deployments" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔁 Automatic container rescheduling" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Optimized for 1vCPU/2GB VPS" >> $GITHUB_STEP_SUMMARY
