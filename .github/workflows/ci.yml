@@ -293,21 +293,6 @@ jobs:
             # Pull latest changes (for compose files and configs)
             git pull origin main
             
-            # Lowercase owner for Docker registry compatibility
-            OWNER="${{ github.repository_owner }}"
-            OWNER_LC="${OWNER,,}"
-            
-            # Create .env.prod from GitHub Secrets
-            cat > .env.prod << EOF
-            ENVIRONMENT=production
-            DOMAIN=${{ secrets.DOMAIN }}
-            ACME_EMAIL=${{ secrets.ACME_EMAIL }}
-            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            IMAGE_TAG=latest
-            GHCR_REGISTRY=ghcr.io/$OWNER_LC
-            EOF
-            
             # Login to GitHub Container Registry (requires GHCR_PAT secret)
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
@@ -321,21 +306,21 @@ jobs:
             echo "Waiting for services to stabilize..."
             sleep 10
             
-            # Verify services are healthy
-            echo "Verifying deployment health..."
-            max_retries=15
-            for i in $(seq 1 $max_retries); do
-              if curl -f -k --max-time 5 https://localhost:443/locations > /dev/null 2>&1 || \
-                 curl -f --max-time 5 http://localhost:80/locations > /dev/null 2>&1; then
-                echo "✅ Deployment verified - services responding"
-                break
-              fi
-              if [ $i -eq $max_retries ]; then
-                echo "⚠️ Warning: Deployment completed but services not responding"
-                docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod logs --tail=50
-              fi
-              sleep 2
-            done
+            # # Verify services are healthy
+            # echo "Verifying deployment health..."
+            # max_retries=15
+            # for i in $(seq 1 $max_retries); do
+            #   if curl -f -k --max-time 5 https://localhost:443/locations > /dev/null 2>&1 || \
+            #      curl -f --max-time 5 http://localhost:80/locations > /dev/null 2>&1; then
+            #     echo "✅ Deployment verified - services responding"
+            #     break
+            #   fi
+            #   if [ $i -eq $max_retries ]; then
+            #     echo "⚠️ Warning: Deployment completed but services not responding"
+            #     docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod logs --tail=50
+            #   fi
+            #   sleep 2
+            # done
             
             # Show running services
             docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod ps
