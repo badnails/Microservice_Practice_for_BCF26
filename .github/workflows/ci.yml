@@ -48,100 +48,13 @@ jobs:
           fi
         continue-on-error: true
 
-  test:
-    name: Integration Tests
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.6
-
-      - name: Restore test dependencies
-        uses: actions/cache@v4
-        with:
-          path: server/node_modules
-          key: bun-modules-test-${{ runner.os }}-${{ hashFiles('server/bun.lockb') }}
-
-      - name: Install test dependencies
-        working-directory: server
-        run: bun install --frozen-lockfile
-
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Start Docker Compose services
-        run: |
-          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait
-          echo "All services are healthy!"
-
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for databases to initialize..."
-          sleep 5
-          
-          echo "Checking database connectivity..."
-          for port in 5433 5434 5435 5436 5437; do
-            timeout 30 bash -c "until pg_isready -h localhost -p $port -U devuser; do sleep 1; done"
-            echo "Database on port $port is ready"
-          done
-          
-          echo "Waiting for microservices to be ready..."
-          sleep 3
-          
-          echo "Testing service endpoints..."
-          max_retries=30
-          for i in $(seq 1 $max_retries); do
-            if curl -f http://localhost:3000/locations > /dev/null 2>&1; then
-              echo "Services are responding!"
-              break
-            fi
-            if [ $i -eq $max_retries ]; then
-              echo "Services failed to respond after $max_retries attempts"
-              docker compose -f docker-compose.yaml -f docker-compose.dev.yaml logs
-              exit 1
-            fi
-            echo "Attempt $i/$max_retries - waiting..."
-            sleep 1
-          done
-
-      - name: Check service health
-        run: |
-          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml ps
-          curl -f http://localhost:3000/locations || (docker compose -f docker-compose.yaml -f docker-compose.dev.yaml logs && exit 1)
-
-      - name: Run integration tests
-        working-directory: server
-        run: bun test
-        env:
-          NODE_ENV: test
-
-      - name: Stop Docker Compose
-        if: always()
-        run: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
-
-      - name: Report test results
-        if: always()
-        run: |
-          echo "### Integration Test Results" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ]; then
-            echo "✅ All integration tests passed!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Integration tests failed. Check logs above for details." >> $GITHUB_STEP_SUMMARY
-          fi
-
   build:
     name: Build Docker Images
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: write  # Required to push to GHCR
-    needs: [test]
+      packages: write
+    needs: [lint]
     strategy:
       matrix:
         service: 
@@ -193,6 +106,31 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           load: false
 
+  trivy:
+    name: Security Scan (Trivy)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    needs: [build]  # Run in parallel with test
+    strategy:
+      matrix:
+        service: 
+          - location-service
+          - product-service
+          - warehouse-service
+          - routing-service
+          - demand-service
+          - validation-service
+          - network-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lowercase repository owner
+        id: lowercase
+        run: echo "owner_lc=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Run Trivy security scan on ${{ matrix.service }}
         uses: aquasecurity/trivy-action@master
         with:
@@ -212,22 +150,116 @@ jobs:
           sarif_file: 'trivy-${{ matrix.service }}.sarif'
           category: trivy-${{ matrix.service }}
 
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-24.04
+    needs: [build]  # Wait for images to be built and pushed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+
+      - name: Restore test dependencies
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: bun-modules-test-${{ runner.os }}-${{ hashFiles('server/bun.lockb') }}
+
+      - name: Install test dependencies
+        working-directory: server
+        run: bun install --frozen-lockfile
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Lowercase repository owner
+        id: lowercase
+        run: echo "owner_lc=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR to pull pre-built images
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create .env.dev for testing
+        run: |
+          cat > .env.dev << EOF
+          GHCR_REGISTRY=ghcr.io/${{ steps.lowercase.outputs.owner_lc }}
+          IMAGE_TAG=latest
+          EOF
+
+      - name: Pull pre-built images from GHCR
+        run: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml --env-file .env.dev pull
+
+      - name: Start Docker Compose services
+        run: |
+          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml --env-file .env.dev up -d --wait
+          echo "All services are healthy!"
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for databases to initialize..."
+          sleep 5
+          
+          echo "Checking database connectivity..."
+          for port in 5433 5434 5435 5436 5437; do
+            timeout 30 bash -c "until pg_isready -h localhost -p $port -U devuser; do sleep 1; done"
+            echo "Database on port $port is ready"
+          done
+          
+          echo "Waiting for microservices to be ready..."
+          sleep 3
+          
+          echo "Testing service endpoints..."
+          max_retries=30
+          for i in $(seq 1 $max_retries); do
+            if curl -f http://localhost:3000/locations > /dev/null 2>&1; then
+              echo "Services are responding!"
+              break
+            fi
+            if [ $i -eq $max_retries ]; then
+              echo "Services failed to respond after $max_retries attempts"
+              docker compose -f docker-compose.yaml -f docker-compose.dev.yaml --env-file .env.dev logs
+              exit 1
+            fi
+            echo "Attempt $i/$max_retries - waiting..."
+            sleep 1
+          done
+
+      - name: Run integration tests
+        working-directory: server
+        run: bun test
+        env:
+          NODE_ENV: test
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml --env-file .env.dev down -v
+
   build-summary:
     name: Build Summary
     runs-on: ubuntu-24.04
-    needs: [build]
+    needs: [lint, build, test, trivy]
     if: always()
     steps:
       - name: Pipeline success summary
         run: |
-          echo "### 🎉 CI Pipeline Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker Builds | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scans | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scans | ${{ needs.trivy.result == 'success' && '✅ Passed' || '⚠️ See Results' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Services Built:**" >> $GITHUB_STEP_SUMMARY
           echo "- location-service:latest (commit: ${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
@@ -241,7 +273,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-24.04
-    needs: [lint, test, build]
+    needs: [test, trivy]  # Wait for both test and security scans
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout
@@ -265,17 +297,45 @@ jobs:
             OWNER="${{ github.repository_owner }}"
             OWNER_LC="${OWNER,,}"
             
+            # Create .env.prod from GitHub Secrets
+            cat > .env.prod << EOF
+            ENVIRONMENT=production
+            DOMAIN=${{ secrets.DOMAIN }}
+            ACME_EMAIL=${{ secrets.ACME_EMAIL }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            IMAGE_TAG=latest
+            GHCR_REGISTRY=ghcr.io/$OWNER_LC
+            EOF
+            
             # Login to GitHub Container Registry (requires GHCR_PAT secret)
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull pre-built images from GHCR
+            # Pull pre-built images from GHCR (same images that passed tests)
             docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod pull
             
-            # Zero-downtime deployment: up -d with --wait (Docker swaps containers when ready)
+            # Deploy updated services
             docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod up -d --wait
             
-            # Verify Traefik is running (with HTTPS)
-            curl -f -k https://localhost:443/locations || curl -f http://localhost:80/locations || echo "Traefik gateway not responding"
+            # Wait for services to stabilize
+            echo "Waiting for services to stabilize..."
+            sleep 10
+            
+            # Verify services are healthy
+            echo "Verifying deployment health..."
+            max_retries=15
+            for i in $(seq 1 $max_retries); do
+              if curl -f -k --max-time 5 https://localhost:443/locations > /dev/null 2>&1 || \
+                 curl -f --max-time 5 http://localhost:80/locations > /dev/null 2>&1; then
+                echo "✅ Deployment verified - services responding"
+                break
+              fi
+              if [ $i -eq $max_retries ]; then
+                echo "⚠️ Warning: Deployment completed but services not responding"
+                docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod logs --tail=50
+              fi
+              sleep 2
+            done
             
             # Show running services
             docker compose -f docker-compose.yaml -f docker-compose.prod.yaml --env-file .env.prod ps

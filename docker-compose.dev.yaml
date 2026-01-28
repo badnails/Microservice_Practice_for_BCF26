@@ -16,6 +16,7 @@ services:
       - "8080:8080"
 
   location-service:
+    image: ${GHCR_REGISTRY:-}/location-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -24,6 +25,7 @@ services:
       - "traefik.http.services.locations.loadbalancer.server.port=3001"
 
   product-service:
+    image: ${GHCR_REGISTRY:-}/product-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -32,6 +34,7 @@ services:
       - "traefik.http.services.products.loadbalancer.server.port=3002"
 
   warehouse-service:
+    image: ${GHCR_REGISTRY:-}/warehouse-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -40,6 +43,7 @@ services:
       - "traefik.http.services.warehouse.loadbalancer.server.port=3003"
 
   routing-service:
+    image: ${GHCR_REGISTRY:-}/routing-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -48,6 +52,7 @@ services:
       - "traefik.http.services.routing.loadbalancer.server.port=3004"
 
   demand-service:
+    image: ${GHCR_REGISTRY:-}/demand-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -56,6 +61,7 @@ services:
       - "traefik.http.services.demands.loadbalancer.server.port=3005"
 
   validation-service:
+    image: ${GHCR_REGISTRY:-}/validation-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
@@ -64,6 +70,7 @@ services:
       - "traefik.http.services.validation.loadbalancer.server.port=3006"
 
   network-service:
+    image: ${GHCR_REGISTRY:-}/network-service:${IMAGE_TAG:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=bwfc_microservices-network"
